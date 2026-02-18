@@ -10,6 +10,7 @@ import {
   pickActiveServer,
   uid,
   normalizeAndValidateBaseUrl,
+  applyScheme,
   type SavedServer,
 } from "@/lib/servers";
 import { notify } from "@/lib/notify";
@@ -19,9 +20,13 @@ export default function SettingsPage() {
   const active = useMemo(() => pickActiveServer(servers), [servers]);
 
   const [name, setName] = useState("");
-  const [baseUrl, setBaseUrl] = useState("http://localhost:8787");
+  const [baseUrl, setBaseUrl] = useState("localhost:8787");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+
+  // ✅ NEW: encryption toggles
+  const [preferHttps, setPreferHttps] = useState(true);
+  const [allowInsecureNonLocal, setAllowInsecureNonLocal] = useState(false);
 
   const [busy, setBusy] = useState(false);
 
@@ -52,7 +57,25 @@ export default function SettingsPage() {
   async function addServer() {
     setBusy(true);
     try {
-      const cleanUrl = normalizeAndValidateBaseUrl(baseUrl);
+      // 1) apply scheme based on toggle
+      const withScheme = applyScheme(baseUrl, preferHttps);
+
+      // 2) validate with security policy
+      const cleanUrl = normalizeAndValidateBaseUrl(withScheme, { allowInsecureNonLocal });
+
+      // 3) warn about Mixed Content if frontend is HTTPS but server is HTTP
+      if (typeof window !== "undefined") {
+        const feHttps = window.location.protocol === "https:";
+        const srvHttp = cleanUrl.startsWith("http://");
+        if (feHttps && srvHttp) {
+          await notify.error(
+            "你目前前端是 HTTPS（例如 Vercel）。瀏覽器會阻止連到 HTTP 後端（Mixed Content）。請改用 HTTPS，或只在本地 http://localhost 測試。",
+            "不能使用不加密連線"
+          );
+          return;
+        }
+      }
+
       const displayName = name.trim() || cleanUrl;
 
       const r = await serverLogin(cleanUrl, username, password);
@@ -142,17 +165,65 @@ export default function SettingsPage() {
     if (!ok) return;
 
     const next: SavedServer[] = servers.map((x) =>
-  x.id === id
-    ? ({
-        ...x,
-        token: undefined,
-        status: "auth_failed" as const,
-      } satisfies SavedServer)
-    : x
-);
+      x.id === id
+        ? ({
+            ...x,
+            token: undefined,
+            status: "auth_failed" as const,
+          } satisfies SavedServer)
+        : x
+    );
 
-persist(next);
+    persist(next);
     notify.toastWarn("Token 已清除", "Token cleared");
+  }
+
+  function Toggle(props: {
+    value: boolean;
+    onChange: (v: boolean) => void;
+    label: string;
+    desc: string;
+    danger?: boolean;
+    disabled?: boolean;
+  }) {
+    const on = props.value;
+    return (
+      <div
+        className={[
+          "mt-3 flex items-center justify-between rounded-2xl border px-4 py-3",
+          props.danger ? "border-red-500/30 bg-red-500/10" : "border-white/25 bg-white/15",
+          props.disabled ? "opacity-60" : "",
+        ].join(" ")}
+      >
+        <div className="text-sm">
+          <div className={["font-medium", props.danger ? "text-red-100" : "text-white/90"].join(" ")}>
+            {props.label}
+          </div>
+          <div className={["text-xs", props.danger ? "text-red-100/80" : "text-white/75"].join(" ")}>
+            {props.desc}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          disabled={props.disabled}
+          onClick={() => props.onChange(!on)}
+          className={[
+            "h-9 w-16 rounded-full border transition",
+            on ? "border-emerald-500/40 bg-emerald-500/30" : "border-white/30 bg-white/20",
+            props.disabled ? "cursor-not-allowed" : "cursor-pointer",
+          ].join(" ")}
+          aria-label={props.label}
+        >
+          <div
+            className={[
+              "h-7 w-7 rounded-full bg-white shadow-sm transition",
+              on ? "translate-x-8" : "translate-x-1",
+            ].join(" ")}
+          />
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -164,7 +235,9 @@ persist(next);
           </div>
           <div>
             <div className="text-lg font-semibold text-white drop-shadow">Settings</div>
-            <div className="text-sm text-white/80 drop-shadow">Manage backend servers (token only, no saved passwords)</div>
+            <div className="text-sm text-white/80 drop-shadow">
+              Manage backend servers (token only, no saved passwords)
+            </div>
           </div>
         </div>
 
@@ -175,11 +248,64 @@ persist(next);
           </div>
 
           <div className="mt-4 grid gap-2 md:grid-cols-2">
-            <input className="rounded-2xl border border-white/30 bg-white/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/40" placeholder="Display name (optional)" value={name} onChange={(e) => setName(e.target.value)} />
-            <input className="rounded-2xl border border-white/30 bg-white/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/40" placeholder="Backend URL (https://...)" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
-            <input className="rounded-2xl border border-white/30 bg-white/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/40" placeholder="Username (not saved)" value={username} onChange={(e) => setUsername(e.target.value)} />
-            <input className="rounded-2xl border border-white/30 bg-white/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/40" placeholder="Password (not saved)" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input
+              className="rounded-2xl border border-white/30 bg-white/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/40"
+              placeholder="Display name (optional)"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <input
+              className="rounded-2xl border border-white/30 bg-white/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/40"
+              placeholder="Backend URL (e.g. localhost:8787 or https://api.example.com)"
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+            />
+            <input
+              className="rounded-2xl border border-white/30 bg-white/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/40"
+              placeholder="Username (not saved)"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+            <input
+              className="rounded-2xl border border-white/30 bg-white/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/40"
+              placeholder="Password (not saved)"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </div>
+
+          {/* ✅ Encryption toggles */}
+          <Toggle
+            value={preferHttps}
+            onChange={(v) => {
+              setPreferHttps(v);
+              if (v) setAllowInsecureNonLocal(false);
+            }}
+            label="Use HTTPS (加密連線)"
+            desc="建議上線/公開使用必須開啟。"
+          />
+
+          <Toggle
+            value={allowInsecureNonLocal}
+            onChange={async (v) => {
+              if (v) {
+                const ok = await notify.confirm({
+                  icon: "warning",
+                  title: "允許非 localhost 使用 HTTP？",
+                  text: "只建議內網測試。仍要使用嗎",
+                  confirmText: "仍要啟用",
+                  cancelText: "取消",
+                });
+                if (!ok) return;
+              }
+              setAllowInsecureNonLocal(v);
+            }}
+            label="Allow HTTP"
+            desc="⚠️ 危險"
+            danger
+            disabled={preferHttps}
+          />
 
           <div className="mt-4 flex flex-wrap gap-2">
             <button
@@ -202,7 +328,7 @@ persist(next);
           </div>
 
           <div className="mt-3 text-xs text-white/80">
-            請注意！爲了您的安全，已經强制啓用加密連接
+            小提示：HTTPS時，HTTP 會被瀏覽器阻止。
           </div>
         </div>
 
@@ -214,10 +340,14 @@ persist(next);
           ) : (
             <div className="mt-3 space-y-2">
               {servers.map((s) => (
-                <div key={s.id} className="flex items-center justify-between rounded-3xl border border-white/25 bg-white/25 p-4 transition hover:bg-white/30">
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between rounded-3xl border border-white/25 bg-white/25 p-4 transition hover:bg-white/30"
+                >
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium">
-                      {s.name} {active?.id === s.id ? <span className="text-xs text-green-800">（active）</span> : null}
+                      {s.name}{" "}
+                      {active?.id === s.id ? <span className="text-xs text-green-800">（active）</span> : null}
                     </div>
                     <div className="truncate text-xs text-neutral-800">{s.baseUrl}</div>
                     <div className="mt-1 text-xs text-neutral-800">
@@ -228,14 +358,23 @@ persist(next);
                   </div>
 
                   <div className="flex shrink-0 gap-2">
-                    <button onClick={() => setActive(s.id)} className="rounded-2xl border border-white/30 bg-white/40 px-3 py-2 text-xs shadow-sm transition hover:bg-white/50 active:scale-[0.99]">
+                    <button
+                      onClick={() => setActive(s.id)}
+                      className="rounded-2xl border border-white/30 bg-white/40 px-3 py-2 text-xs shadow-sm transition hover:bg-white/50 active:scale-[0.99]"
+                    >
                       Set active
                     </button>
-                    <button onClick={() => clearToken(s.id)} className="inline-flex items-center gap-1 rounded-2xl border border-white/30 bg-white/40 px-3 py-2 text-xs shadow-sm transition hover:bg-white/50 active:scale-[0.99]">
+                    <button
+                      onClick={() => clearToken(s.id)}
+                      className="inline-flex items-center gap-1 rounded-2xl border border-white/30 bg-white/40 px-3 py-2 text-xs shadow-sm transition hover:bg-white/50 active:scale-[0.99]"
+                    >
                       <KeyRound className="h-3.5 w-3.5" />
                       Clear token
                     </button>
-                    <button onClick={() => removeServer(s.id)} className="inline-flex items-center gap-1 rounded-2xl border border-white/30 bg-white/40 px-3 py-2 text-xs shadow-sm transition hover:bg-white/50 active:scale-[0.99]">
+                    <button
+                      onClick={() => removeServer(s.id)}
+                      className="inline-flex items-center gap-1 rounded-2xl border border-white/30 bg-white/40 px-3 py-2 text-xs shadow-sm transition hover:bg-white/50 active:scale-[0.99]"
+                    >
                       <Trash2 className="h-3.5 w-3.5" />
                       Remove
                     </button>
@@ -246,9 +385,7 @@ persist(next);
           )}
         </div>
 
-        <div className="text-xs text-white/80 drop-shadow">
-          本頁面沒有任何版權，隨便偷
-        </div>
+        <div className="text-xs text-white/80 drop-shadow">本頁面沒有任何版權，隨便偷</div>
       </div>
     </div>
   );
