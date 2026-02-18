@@ -202,7 +202,7 @@ persist(next);
           </div>
 
           <div className="mt-3 text-xs text-white/80">
-            ✅ 安全：除 localhost/127.0.0.1 外，URL 必須為 https://
+            請注意！爲了您的安全，已經强制啓用加密連接
           </div>
         </div>
 
@@ -247,7 +247,7 @@ persist(next);
         </div>
 
         <div className="text-xs text-white/80 drop-shadow">
-          全站毛玻璃背景已啟用。請確保 /public/bg.jpg 存在。
+          本頁面沒有任何版權，隨便偷
         </div>
       </div>
     </div>
