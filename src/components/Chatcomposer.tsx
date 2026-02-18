@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import type { Attachment } from "@/lib/types";
 import { Paperclip, Send, X, Image as ImageIcon } from "lucide-react";
 import { motion } from "framer-motion";
+import { uid } from "@/lib/utils";
 
 export function ChatComposer(props: {
   disabled?: boolean;
@@ -15,8 +16,9 @@ export function ChatComposer(props: {
 
   const attachments: Attachment[] = useMemo(() => {
     return files.map((f) => ({
+      id: uid("att"),
       name: f.name,
-      type: f.type,
+      mime: f.type || "application/octet-stream",
       size: f.size,
     }));
   }, [files]);
@@ -29,6 +31,8 @@ export function ChatComposer(props: {
     if (!list) return;
     const arr = Array.from(list);
     setFiles((prev) => [...prev, ...arr]);
+    // allow re-select same file
+    if (inputRef.current) inputRef.current.value = "";
   }
 
   function removeFile(idx: number) {
@@ -44,7 +48,6 @@ export function ChatComposer(props: {
   }
 
   return (
-    // ✅ 底部毛玻璃輸入區
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
@@ -56,7 +59,7 @@ export function ChatComposer(props: {
         {files.length ? (
           <div className="mb-3 flex flex-wrap gap-2">
             {files.map((f, idx) => {
-              const isImage = f.type.startsWith("image/");
+              const isImage = (f.type || "").startsWith("image/");
               return (
                 <div
                   key={`${f.name}-${idx}`}
@@ -68,6 +71,7 @@ export function ChatComposer(props: {
                     onClick={() => removeFile(idx)}
                     className="grid h-6 w-6 place-items-center rounded-xl border border-white/30 bg-white/40 hover:bg-white/50 active:scale-[0.98]"
                     aria-label="Remove file"
+                    type="button"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -91,6 +95,7 @@ export function ChatComposer(props: {
             disabled={props.disabled}
             className="grid h-11 w-11 place-items-center rounded-2xl border border-white/30 bg-white/40 shadow-sm transition hover:bg-white/50 active:scale-[0.99] disabled:opacity-50"
             title="Attach files"
+            type="button"
           >
             <Paperclip className="h-5 w-5" />
           </button>
@@ -117,6 +122,7 @@ export function ChatComposer(props: {
             disabled={props.disabled || (!text.trim() && files.length === 0)}
             className="inline-flex h-11 items-center gap-2 rounded-2xl bg-neutral-900 px-4 text-sm text-white shadow-sm transition active:scale-[0.99] disabled:opacity-50"
             title="Send"
+            type="button"
           >
             <Send className="h-4 w-4" />
             <span className="hidden sm:inline">Send</span>
@@ -124,9 +130,10 @@ export function ChatComposer(props: {
         </div>
 
         <div className="mt-2 text-[11px] text-neutral-700">
-          Enter 發送 · Shift+Enter 換行
+          Enter 發送 · Shift+Enter 換行 請注意token費用！
         </div>
       </div>
     </motion.div>
   );
 }
+
