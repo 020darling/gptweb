@@ -10,11 +10,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="zh-Hant" className="h-full">
       <body className="h-full min-h-dvh bg-transparent">
-        {/* ✅ App 根容器：用 z-index 分層，避免負 z-index 被壓住 */}
+        {/*  App 根容 */}
         <div className="relative min-h-dvh">
-          {/* ✅ 背景層 */}
+          {/* 背景層 */}
           <div className="fixed inset-0 z-0">
-            {/* 用 img 強制載入，避免 background-image 你睇唔到差異 */}
+            {/*  img 強制載入 */}
             <img
               src="/bg.jpg"
               alt="background"
@@ -25,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="absolute inset-0 bg-black/35" />
           </div>
 
-          {/* ✅ 內容層 */}
+          {/* 內容層 */}
           <div className="relative z-10 min-h-dvh">{children}</div>
         </div>
       </body>
