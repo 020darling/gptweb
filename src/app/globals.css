@@ -24,3 +24,43 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========= 全站背景圖 ========= */
+/* body {
+  background-image: url("/ai-gateway-web/src/app/static/bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+} */
+
+/* 暗色遮罩層 */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.25);
+  z-index: -1;
+}
+
+/* ========= 毛玻璃卡片 ========= */
+.glass {
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255,255,255,0.35);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+}
+
+/* 深色版（sidebar / header） */
+.glass-dark {
+  background: rgba(20,20,20,0.55);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: white;
+}
+
