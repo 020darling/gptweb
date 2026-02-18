@@ -66,7 +66,7 @@ export default function LoginPage() {
         </button>
 
         <div className="mt-4 text-xs text-neutral-500">
-          ⚠️ 本頁不提供任何註冊/生成入口。帳號只能由伺服器 CLI 建立。
+          本頁不提供任何註冊/生成入口。帳號只能由伺服器 CLI 建立。
         </div>
       </div>
     </div>
