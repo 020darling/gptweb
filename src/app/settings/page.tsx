@@ -69,7 +69,7 @@ export default function SettingsPage() {
         const srvHttp = cleanUrl.startsWith("http://");
         if (feHttps && srvHttp) {
           await notify.error(
-            "你目前前端是 HTTPS（例如 Vercel）。瀏覽器會阻止連到 HTTP 後端（Mixed Content）。請改用 HTTPS，或只在本地 http://localhost 測試。",
+            "你目前前端是 HTTPS。瀏覽器會阻止連到 HTTP 後端。請改用 HTTPS，或只在本地 http://localhost 測試。",
             "不能使用不加密連線"
           );
           return;
