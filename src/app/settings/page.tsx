@@ -141,8 +141,17 @@ export default function SettingsPage() {
     });
     if (!ok) return;
 
-    const next = servers.map((x) => (x.id === id ? { ...x, token: undefined, status: "auth_failed" } : x));
-    persist(next);
+    const next: SavedServer[] = servers.map((x) =>
+  x.id === id
+    ? ({
+        ...x,
+        token: undefined,
+        status: "auth_failed" as const,
+      } satisfies SavedServer)
+    : x
+);
+
+persist(next);
     notify.toastWarn("Token 已清除", "Token cleared");
   }
 
